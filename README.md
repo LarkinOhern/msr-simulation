@@ -2,7 +2,7 @@
 **Portfolio Period:** December 2025 – January 2026
 **Portfolio Size:** 1,000 loans (Dec) → 1,188 loans (Jan)
 **Total UPB:** ~$291M (Dec) → ~$356M (Jan)
-**Last Updated:** February 21, 2026
+**Last Updated:** February 22, 2026
 **Prepared by:** Larkin O'Hern
 
 > **SIMULATED DATA** — All loan information is synthetic and generated for testing purposes only.
@@ -146,6 +146,9 @@ python validate_msr_tape.py \
 | `MSR_Tape_Jan2026_SUBSERVICER.xlsx` | Dirty subservicer submission tape (22 injected errors) |
 | `Validation_Jan2026_SUBSERVICER.xlsx` | Validation report — Excel with 4 tabs |
 | `Validation_Jan2026_SUBSERVICER.md` | Validation report — Markdown |
+| `MSR_Tape_Jan2026_SUBSERVICER_LO_Jitter.xlsx` | Blind test submission — errors manually injected by Larkin O'Hern |
+| `Validation_Jan2026_SUBSERVICER_LO_Jitter.xlsx` | Blind test validation report — Excel with 4 tabs |
+| `Validation_Jan2026_SUBSERVICER_LO_Jitter.md` | Blind test validation report — Markdown |
 
 ---
 
@@ -220,6 +223,42 @@ Yellow light breakdown:
 
 The 12 legitimate PIFs are automatically cleared by cross-referencing `Recon_PaidInFull_Jan2026.xlsx`.
 Only the 3 genuinely unexplained missing loans (removed without PIF) become hard stops.
+
+---
+
+## Blind Test — Validator Against Unknown Injections
+
+`MSR_Tape_Jan2026_SUBSERVICER_LO_Jitter.xlsx` was manually constructed by Larkin O'Hern with undisclosed errors to test whether the validator catches issues it was not designed around in advance. The validator had no knowledge of what was injected.
+
+```bash
+python validate_msr_tape.py --submission MSR_Tape_Jan2026_SUBSERVICER_LO_Jitter.xlsx
+```
+
+```
+Prior month:    1,000 loans
+Submission:     1,187 loans (raw, incl. dups)
+Missing loans:  15 total
+  PIF-explained:  12  (cleared)
+  Unexplained:     3  <-- HARD STOP
+HARD STOPS:     13  <-- ACTION REQUIRED
+YELLOW LIGHTS:  17  <-- REVIEW REQUIRED
+Clean loans:    1,161
+```
+
+**Result: 8 for 8 — all manually injected errors caught.**
+
+| Loan ID | Rule Triggered | Injection |
+|---|---|---|
+| MSR100005 | NSF May Be Expressed as Percent | NSF = 0.5500 (stacked on existing UPB error) |
+| MSR100006 | NSF May Be Expressed as Percent | NSF = 0.2500 (stacked on existing UPB error) |
+| MSR100015 | NSF May Be Expressed as Percent | NSF = 0.2500 on a clean loan |
+| MSR100028 | Invalid Status Value | Status = `"60+ DPD"` (should be `"60 DPD"`) |
+| MSR300198 | Unboarded Loan — not in New Add report | Phantom loan ID not in any recon file |
+| MSR100017 | Status Bucket Skip | Current → 90+ DPD |
+| MSR100024 | Status Bucket Skip | Current → 90+ DPD |
+| MSR100025 | Status Bucket Skip | Current → 90+ DPD |
+
+Notable catches: the `"60+ DPD"` typo (realistic field encoding error) and the phantom new add `MSR300198` (loan appearing in submission with no recon trail) were both flagged correctly with no prior knowledge of either injection.
 
 ---
 
