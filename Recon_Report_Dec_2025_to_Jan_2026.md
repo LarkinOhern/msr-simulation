@@ -48,13 +48,13 @@
 
 | Loan ID | From | To | UPB ($) |
 |---|---|---|---:|
+| MSR100726 | 60 DPD | Current | $322,836.07 |
 | MSR100542 | Current | 30 DPD | $251,963.15 |
-| MSR100443 | 60 DPD | 90+ DPD | $326,446.17 |
-| MSR100289 | 30 DPD | Current | $382,060.03 |
 | MSR100195 | Current | 30 DPD | $217,167.13 |
 | MSR100869 | 30 DPD | 60 DPD | $308,607.16 |
 | MSR100499 | Current | 30 DPD | $383,436.85 |
-| MSR100726 | 60 DPD | Current | $322,836.07 |
+| MSR100289 | 30 DPD | Current | $382,060.03 |
+| MSR100443 | 60 DPD | 90+ DPD | $326,446.17 |
 
 ---
 

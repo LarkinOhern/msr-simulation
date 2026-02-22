@@ -192,6 +192,36 @@ def load_tape(filepath, sheet_hint=None):
     return rows
 
 
+def load_pif_ids(filepath):
+    """Load Loan IDs from a PIF recon workbook. Returns a set of loan ID strings."""
+    if not filepath or not os.path.exists(filepath):
+        return set()
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    ws = wb.active
+    ids = set()
+    for row in ws.iter_rows(min_row=1):
+        val = row[0].value
+        if val and _LOAN_ID_RE.match(str(val).strip()):
+            ids.add(str(val).strip())
+    print(f"    Loaded {len(ids):,} PIF IDs from {os.path.basename(filepath)}")
+    return ids
+
+
+def load_new_add_ids(filepath):
+    """Load Loan IDs from a New Add recon workbook. Returns a set of loan ID strings."""
+    if not filepath or not os.path.exists(filepath):
+        return set()
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    ws = wb.active
+    ids = set()
+    for row in ws.iter_rows(min_row=1):
+        val = row[0].value
+        if val and _LOAN_ID_RE.match(str(val).strip()):
+            ids.add(str(val).strip())
+    print(f"    Loaded {len(ids):,} New Add IDs from {os.path.basename(filepath)}")
+    return ids
+
+
 # ── Math helper ───────────────────────────────────────────────────────────────
 def calc_pi(upb, rate, rem_term):
     """Compute expected P&I for given UPB / rate / remaining term."""
@@ -215,10 +245,13 @@ def status_distance(s1, s2):
 
 
 # ── Core validation ───────────────────────────────────────────────────────────
-def validate(prior_loans_list, current_loans_list, label_prior, label_current):
+def validate(prior_loans_list, current_loans_list, label_prior, label_current,
+             pif_ids=None, new_add_ids_reported=None):
     """
     Run two-layer validation. Returns a results dict.
     prior_loans_list / current_loans_list: lists of loan dicts.
+    pif_ids: set of loan IDs confirmed as Paid in Full (from PIF recon report).
+    new_add_ids_reported: set of loan IDs confirmed as new adds (from New Add recon report).
     """
     prior   = {ln["loan_id"]: ln for ln in prior_loans_list}
     # Build current dict but track duplicates
@@ -397,8 +430,15 @@ def validate(prior_loans_list, current_loans_list, label_prior, label_current):
         })
 
     # ── Layer 2: cross-period checks ─────────────────────────────────────────
-    # Missing loans
-    for lid in sorted(missing_ids):
+    pif_ids              = pif_ids or set()
+    new_add_ids_reported = new_add_ids_reported or set()
+
+    explained_pif        = missing_ids & pif_ids       # legit PIFs — cleared
+    unexplained_missing  = missing_ids - pif_ids       # genuine hard stops
+    unconfirmed_new_adds = new_add_ids - new_add_ids_reported  # yellow lights
+
+    # Unexplained missing loans → hard stops
+    for lid in sorted(unexplained_missing):
         ln = prior[lid]
         hard_stops.append({
             "layer": 2, "loan_id": lid, "investor": ln.get("investor", ""),
@@ -407,6 +447,18 @@ def validate(prior_loans_list, current_loans_list, label_prior, label_current):
             "submitted": "Not present",
             "expected": "Present (no PIF entry found for this loan ID)",
             "detail": f"{lid} existed in prior month but is absent from submission with no PIF.",
+        })
+
+    # Unconfirmed new adds → yellow lights
+    for lid in sorted(unconfirmed_new_adds):
+        ln = current[lid]
+        yellow_lights.append({
+            "layer": 2, "loan_id": lid, "investor": ln.get("investor", ""),
+            "rule":  "Unboarded Loan — not in New Add report",
+            "field": "Loan ID",
+            "submitted": "Present in submission",
+            "expected": "Present in New Add recon report",
+            "detail": f"{lid} appears in submission but is not in the New Add recon report — verify boarding.",
         })
 
     for lid in continuing:
@@ -429,18 +481,18 @@ def validate(prior_loans_list, current_loans_list, label_prior, label_current):
                 "detail": f"Loan went from {p_status} to {c_status} in one month — skipped intermediate bucket(s).",
             })
 
-        # Remaining term increased for Current loan (should never increase)
+        # Remaining term did not decrease for Current loan (should drop by 1 each month)
         p_rem  = p.get("rem_term")
         c2_rem = c2.get("rem_term")
         if (p_status == "Current" and p_rem is not None and c2_rem is not None
-                and c2_rem > p_rem):
+                and c2_rem >= p_rem):
             yellow_lights.append({
                 "layer": 2, "loan_id": lid, "investor": investor,
                 "rule":  "Remaining Term Did Not Decrease",
                 "field": "Rem Term",
                 "submitted": str(c2_rem),
-                "expected": f"<= {p_rem} (should not increase)",
-                "detail": f"Rem term increased from {p_rem} (prior) to {c2_rem} (current) — should never increase for an amortizing loan.",
+                "expected": f"<= {int(p_rem) - 1} (should decrease by 1)",
+                "detail": f"Rem term did not decrease from {p_rem} (prior) to {c2_rem} (current) — expected {int(p_rem) - 1}.",
             })
 
         # Rate changed between months
@@ -488,23 +540,28 @@ def validate(prior_loans_list, current_loans_list, label_prior, label_current):
                             if (current[lid]["upb"] or 0) < 5_000_000)
 
     return {
-        "label_prior":   label_prior,
-        "label_current": label_current,
-        "n_prior":       len(prior),
-        "n_current":     len(current),
-        "n_submitted":   len(current_loans_list),  # includes dups before dedup
-        "n_missing":     len(missing_ids),
-        "n_new_add":     len(new_add_ids),
-        "n_continuing":  len(continuing),
-        "n_dups":        len(duplicate_ids),
-        "hard_stops":    hard_stops,
-        "yellow_lights": yellow_lights,
-        "clean_ids":     clean_ids,
-        "missing_ids":   sorted(missing_ids),
-        "new_add_ids":   sorted(new_add_ids),
-        "prior":         prior,
-        "current":       current,
-        "upb_total":     upb_total_current,
+        "label_prior":        label_prior,
+        "label_current":      label_current,
+        "n_prior":            len(prior),
+        "n_current":          len(current),
+        "n_submitted":        len(current_loans_list),  # includes dups before dedup
+        "n_missing":          len(missing_ids),
+        "n_pif_explained":    len(explained_pif),
+        "n_unexplained":      len(unexplained_missing),
+        "n_unconfirmed_na":   len(unconfirmed_new_adds),
+        "n_new_add":          len(new_add_ids),
+        "n_continuing":       len(continuing),
+        "n_dups":             len(duplicate_ids),
+        "hard_stops":         hard_stops,
+        "yellow_lights":      yellow_lights,
+        "clean_ids":          clean_ids,
+        "missing_ids":        sorted(missing_ids),
+        "explained_pif_ids":  sorted(explained_pif),
+        "unexplained_ids":    sorted(unexplained_missing),
+        "new_add_ids":        sorted(new_add_ids),
+        "prior":              prior,
+        "current":            current,
+        "upb_total":          upb_total_current,
     }
 
 
@@ -549,15 +606,19 @@ def write_excel(res, out_path):
     ws.row_dimensions[row].height = 20; row += 1
 
     scorecard = [
-        ("Prior Month Loans",          res["n_prior"],     None, F_GREY),
-        ("Submitted Loans (raw)",       res["n_submitted"], None, F_GREY),
-        ("  + Duplicate IDs Found",     res["n_dups"],      None, F_HARD if res["n_dups"] else None),
-        ("  - Missing Loans (no PIF)",  res["n_missing"],   None, F_HARD if res["n_missing"] else None),
-        ("  New Adds",                  res["n_new_add"],   None, F_GREY),
-        ("Unique Loans Evaluated",      res["n_current"],   None, F_GREY),
+        ("Prior Month Loans",                   res["n_prior"],           None, F_GREY),
+        ("Submitted Loans (raw)",               res["n_submitted"],       None, F_GREY),
+        ("  + Duplicate IDs Found",             res["n_dups"],            None, F_HARD   if res["n_dups"]        else None),
+        ("  - Missing Loans (total)",           res["n_missing"],         None, F_HARD   if res["n_missing"]     else None),
+        ("      PIF-Explained (cleared)",       res["n_pif_explained"],   None, F_GREEN  if res["n_pif_explained"] else F_GREY),
+        ("      Unexplained (→ Hard Stop)",     res["n_unexplained"],     None, F_HARD   if res["n_unexplained"] else None),
+        ("  New Adds (submitted)",              res["n_new_add"],         None, F_GREY),
+        ("      Confirmed by New Add Report",   res["n_new_add"] - res["n_unconfirmed_na"], None, F_GREY),
+        ("      Unconfirmed (→ Yellow Light)",  res["n_unconfirmed_na"],  None, F_YELLOW if res["n_unconfirmed_na"] else None),
+        ("Unique Loans Evaluated",              res["n_current"],         None, F_GREY),
         ("", "", None, None),
-        ("HARD STOPS",   n_hs,   None, F_HARD  if n_hs    else F_GREEN),
-        ("YELLOW LIGHTS",n_yl,   None, F_YELLOW if n_yl   else F_GREEN),
+        ("HARD STOPS",   n_hs,   None, F_HARD   if n_hs else F_GREEN),
+        ("YELLOW LIGHTS",n_yl,   None, F_YELLOW if n_yl else F_GREEN),
         ("Loans Passing All Checks",    n_clean, None, F_GREEN),
     ]
     for label, val, _, fill in scorecard:
@@ -675,34 +736,77 @@ def write_excel(res, out_path):
     ws_miss = wb.create_sheet("Missing Loans")
     for col, w in zip("ABCDE", [13, 10, 13, 16, 40]):
         ws_miss.column_dimensions[col].width = w
-    ws_miss.merge_cells("A1:E1")
-    t = ws_miss.cell(row=1, column=1,
-        value=f"MISSING LOANS  |  In {m1} but absent from {m2} (no PIF reported)  |  {res['n_missing']} Loans")
-    t.fill = F_HARDH; t.font = _font(bold=True, color="FFFFFF", size=11)
-    t.alignment = Alignment(horizontal="center", vertical="center")
-    ws_miss.row_dimensions[1].height = 24
-    for col, h in enumerate(["Loan ID","Investor","Loan Type","Prior UPB ($)","Action Required"], 1):
-        _hcell(ws_miss, 2, col, h, F_HARDH)
-    ws_miss.row_dimensions[2].height = 26
+
+    def _miss_hdr(ws, row, title, fill, n_loans):
+        ws.merge_cells(f"A{row}:E{row}")
+        t = ws.cell(row=row, column=1,
+            value=f"{title}  |  {n_loans} Loan{'s' if n_loans != 1 else ''}")
+        t.fill = fill; t.font = _font(bold=True, color="FFFFFF", size=11)
+        t.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[row].height = 24
+        return row + 1
+
+    def _miss_col_hdrs(ws, row, fill):
+        for col, h in enumerate(["Loan ID","Investor","Loan Type","Prior UPB ($)","Note"], 1):
+            _hcell(ws, row, col, h, fill)
+        ws.row_dimensions[row].height = 26
+        return row + 1
+
+    miss_row = 1
     ws_miss.freeze_panes = "A3"
-    if not res["missing_ids"]:
-        ws_miss.cell(row=3, column=1).value = "No missing loans detected."
-        ws_miss.cell(row=3, column=1).font  = GRN_FNT
+
+    # Section 1: Unexplained missing (hard stops)
+    miss_row = _miss_hdr(ws_miss, miss_row,
+        f"UNEXPLAINED MISSING LOANS — ACTION REQUIRED  |  In {m1}, absent from {m2}, not in PIF report",
+        F_HARDH, res["n_unexplained"])
+    miss_row = _miss_col_hdrs(ws_miss, miss_row, F_HARDH)
+
+    if not res["unexplained_ids"]:
+        ws_miss.cell(row=miss_row, column=1).value = "No unexplained missing loans. ✓"
+        ws_miss.cell(row=miss_row, column=1).font  = GRN_FNT
+        miss_row += 1
     else:
-        for r3, lid in enumerate(res["missing_ids"], 3):
+        for lid in res["unexplained_ids"]:
             ln = res["prior"][lid]
-            alt = F_HARD if r3 % 2 == 0 else None
+            alt = F_HARD if miss_row % 2 == 0 else None
             vals = [lid, ln.get("investor",""), ln.get("loan_type",""),
                     ln.get("upb"), "Confirm PIF or resubmit tape with loan included."]
             for col, val in enumerate(vals, 1):
-                c = ws_miss.cell(row=r3, column=col, value=val)
+                c = ws_miss.cell(row=miss_row, column=col, value=val)
                 if alt: c.fill = alt
                 c.font = _font(bold=(col==1), size=9)
                 c.number_format = CURR if col == 4 else "@"
                 c.alignment = Alignment(
-                    horizontal="left" if col == 5 else "center",
-                    vertical="center")
+                    horizontal="left" if col == 5 else "center", vertical="center")
                 c.border = THIN
+            miss_row += 1
+
+    miss_row += 1  # spacer
+
+    # Section 2: PIF-explained (informational — cleared)
+    miss_row = _miss_hdr(ws_miss, miss_row,
+        f"PIF-EXPLAINED LOANS — CLEARED  |  In {m1}, absent from {m2}, confirmed in PIF report",
+        F_GREEHN, res["n_pif_explained"])
+    miss_row = _miss_col_hdrs(ws_miss, miss_row, F_GREEHN)
+
+    if not res["explained_pif_ids"]:
+        ws_miss.cell(row=miss_row, column=1).value = "No PIF-explained loans."
+        miss_row += 1
+    else:
+        for lid in res["explained_pif_ids"]:
+            ln = res["prior"][lid]
+            alt = F_GREEN if miss_row % 2 == 0 else None
+            vals = [lid, ln.get("investor",""), ln.get("loan_type",""),
+                    ln.get("upb"), "Confirmed Paid in Full — cleared by PIF recon report."]
+            for col, val in enumerate(vals, 1):
+                c = ws_miss.cell(row=miss_row, column=col, value=val)
+                if alt: c.fill = alt
+                c.font = _font(bold=(col==1), size=9)
+                c.number_format = CURR if col == 4 else "@"
+                c.alignment = Alignment(
+                    horizontal="left" if col == 5 else "center", vertical="center")
+                c.border = THIN
+            miss_row += 1
 
     wb.save(out_path)
     print(f"  Excel report:    {out_path}")
@@ -716,6 +820,8 @@ def write_markdown(res, out_path):
     n_yl = len(res["yellow_lights"])
 
     status_icon = "[FAIL]" if n_hs > 0 else ("[REVIEW]" if n_yl > 0 else "[PASS]")
+
+    n_confirmed_na = res["n_new_add"] - res["n_unconfirmed_na"]
 
     lines = [
         f"# MSR Tape Validation Report",
@@ -734,8 +840,12 @@ def write_markdown(res, out_path):
         f"| Prior Month Loans | {res['n_prior']:,} |",
         f"| Loans in Submission (raw) | {res['n_submitted']:,} |",
         f"| Duplicate Loan IDs | {res['n_dups']:,} |",
-        f"| Missing Loans (no PIF) | {res['n_missing']:,} |",
-        f"| New Adds | {res['n_new_add']:,} |",
+        f"| Missing Loans (total) | {res['n_missing']:,} |",
+        f"|   — PIF-Explained (cleared) | {res['n_pif_explained']:,} |",
+        f"|   — Unexplained (→ Hard Stop) | {res['n_unexplained']:,} |",
+        f"| New Adds (submitted) | {res['n_new_add']:,} |",
+        f"|   — Confirmed by New Add Report | {n_confirmed_na:,} |",
+        f"|   — Unconfirmed (→ Yellow Light) | {res['n_unconfirmed_na']:,} |",
         f"| Unique Loans Evaluated | {res['n_current']:,} |",
         f"| **HARD STOPS** | **{n_hs}** |",
         f"| **YELLOW LIGHTS** | **{n_yl}** |",
@@ -787,19 +897,39 @@ def write_markdown(res, out_path):
         "",
         "## Missing Loans",
         "",
+        "### Unexplained — Action Required",
+        "",
     ]
-    if res["missing_ids"]:
+    if res["unexplained_ids"]:
         lines += [
             "| Loan ID | Investor | Prior UPB ($) |",
             "|---|---|---:|",
         ]
-        for lid in res["missing_ids"]:
+        for lid in res["unexplained_ids"]:
             ln = res["prior"][lid]
             lines.append(
                 f"| {lid} | {ln.get('investor','')} | ${ln.get('upb') or 0:,.2f} |"
             )
     else:
-        lines.append("_No missing loans detected._")
+        lines.append("_No unexplained missing loans. All absences are PIF-explained._")
+
+    lines += [
+        "",
+        "### PIF-Explained — Cleared",
+        "",
+    ]
+    if res["explained_pif_ids"]:
+        lines += [
+            "| Loan ID | Investor | Prior UPB ($) |",
+            "|---|---|---:|",
+        ]
+        for lid in res["explained_pif_ids"]:
+            ln = res["prior"][lid]
+            lines.append(
+                f"| {lid} | {ln.get('investor','')} | ${ln.get('upb') or 0:,.2f} |"
+            )
+    else:
+        lines.append("_No PIF-explained loans._")
 
     lines += [
         "",
@@ -817,15 +947,19 @@ def write_markdown(res, out_path):
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="MSR Tape Two-Layer Validator")
-    parser.add_argument("--tape",          "-t", default=None,
+    parser.add_argument("--tape",           "-t", default=None,
         help="Prior month tape Excel file (or combined file with two sheets)")
-    parser.add_argument("--submission",    "-s", default=None,
+    parser.add_argument("--submission",     "-s", default=None,
         help="Current month (subservicer) submission Excel file")
-    parser.add_argument("--prior-sheet",   default=None,
+    parser.add_argument("--prior-sheet",    default=None,
         help="Sheet name for prior month (when using combined file)")
-    parser.add_argument("--current-sheet", default=None,
+    parser.add_argument("--current-sheet",  default=None,
         help="Sheet name for current month (when using combined file)")
-    parser.add_argument("--output-dir",    "-o", default=None)
+    parser.add_argument("--pif-report",     default=None,
+        help="PIF recon Excel file (e.g. Recon_PaidInFull_Jan2026.xlsx)")
+    parser.add_argument("--new-add-report", default=None,
+        help="New Add recon Excel file (e.g. Recon_NewAdds_Jan2026.xlsx)")
+    parser.add_argument("--output-dir",     "-o", default=None)
     args = parser.parse_args()
 
     # Auto-resolve files from script directory if not provided
@@ -847,15 +981,37 @@ def main():
         label_prior   = os.path.basename(tape_file).replace("MSR_Sample_Tape_","").replace(".xlsx","")
         label_current = os.path.basename(sub_file).replace("MSR_Tape_","").replace(".xlsx","").replace("_"," ")
 
+    # Auto-discover PIF and New Add recon files if not provided
+    pif_file = args.pif_report
+    if not pif_file:
+        for fname in sorted(os.listdir(script_dir)):
+            if fname.startswith("Recon_PaidInFull") and fname.endswith(".xlsx"):
+                pif_file = os.path.join(script_dir, fname)
+                break
+
+    na_file = args.new_add_report
+    if not na_file:
+        for fname in sorted(os.listdir(script_dir)):
+            if fname.startswith("Recon_NewAdds") and fname.endswith(".xlsx"):
+                na_file = os.path.join(script_dir, fname)
+                break
+
     print(f"\nMSR Tape Validator")
     print(f"  Prior tape:   {tape_file}  (sheet: {prior_sheet or 'auto'})")
     print(f"  Submission:   {sub_file}  (sheet: {current_sheet or 'auto'})")
+    print(f"  PIF report:   {pif_file or '(not found — missing loans will all flag as hard stops)'}")
+    print(f"  New Add rpt:  {na_file or '(not found — new adds will not be cross-checked)'}")
     print(f"\nLoading tapes...")
     prior_loans   = load_tape(tape_file, sheet_hint=prior_sheet)
     current_loans = load_tape(sub_file,  sheet_hint=current_sheet)
 
+    print(f"\nLoading recon files...")
+    pif_ids    = load_pif_ids(pif_file)
+    na_ids     = load_new_add_ids(na_file)
+
     print(f"\nRunning validation...")
-    result = validate(prior_loans, current_loans, label_prior, label_current)
+    result = validate(prior_loans, current_loans, label_prior, label_current,
+                      pif_ids=pif_ids, new_add_ids_reported=na_ids)
 
     n_hs = len(result["hard_stops"])
     n_yl = len(result["yellow_lights"])
@@ -874,6 +1030,9 @@ def main():
     print(f"{'='*60}")
     print(f"  Prior month:    {result['n_prior']:,} loans")
     print(f"  Submission:     {result['n_submitted']:,} loans (raw, incl. dups)")
+    print(f"  Missing loans:  {result['n_missing']:,} total")
+    print(f"    PIF-explained:  {result['n_pif_explained']:,}  (cleared)")
+    print(f"    Unexplained:    {result['n_unexplained']:,}  {'<-- HARD STOP' if result['n_unexplained'] else '[OK]'}")
     print(f"  HARD STOPS:     {n_hs}  {'<-- ACTION REQUIRED' if n_hs else '[OK]'}")
     print(f"  YELLOW LIGHTS:  {n_yl}  {'<-- REVIEW REQUIRED' if n_yl else '[OK]'}")
     print(f"  Clean loans:    {len(result['clean_ids']):,}")

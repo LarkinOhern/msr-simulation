@@ -106,15 +106,18 @@ Two-layer validator that compares a subservicer submission against the prior mon
 - Next Due Date in the past for a Current loan → Yellow Light
 
 **Layer 2 — Cross-period checks vs prior month** (continuing loans only):
-- Loan in prior tape, absent from submission, no PIF → Hard Stop
+- Loan in prior tape, absent from submission, no PIF → Hard Stop (or cleared if confirmed in PIF report)
 - Status skipped a bucket (e.g. Current → 90+ DPD) → Yellow Light
 - P&I increased more than 10% month-over-month → Yellow Light
-- Remaining term increased → Yellow Light
+- Remaining term did not decrease by 1 → Yellow Light
 - Rate changed between months → Yellow Light
+- New add in submission not found in New Add recon report → Yellow Light
 
-Outputs `Validation_<submission>.xlsx` (Summary, Hard Stops, Yellow Lights, Missing Loans tabs) and a Markdown report.
+The validator auto-discovers `Recon_PaidInFull_*.xlsx` and `Recon_NewAdds_*.xlsx` in the same directory. Missing loans confirmed in the PIF report are cleared (informational only); only genuinely unexplained absences become hard stops.
 
-**Default (auto-discovers files in script directory):**
+Outputs `Validation_<submission>.xlsx` (Summary, Hard Stops, Yellow Lights, Missing Loans tabs) and a Markdown report. The Missing Loans tab is split into two sections: Unexplained (action required) and PIF-Explained (cleared).
+
+**Default (auto-discovers all files in script directory):**
 ```bash
 python validate_msr_tape.py
 ```
@@ -123,7 +126,9 @@ python validate_msr_tape.py
 ```bash
 python validate_msr_tape.py \
   --tape MSR_Sample_Tape_Dec2025_Jan2026.xlsx \
-  --submission MSR_Tape_Jan2026_SUBSERVICER.xlsx
+  --submission MSR_Tape_Jan2026_SUBSERVICER.xlsx \
+  --pif-report Recon_PaidInFull_Jan2026.xlsx \
+  --new-add-report Recon_NewAdds_Jan2026.xlsx
 ```
 
 ---
@@ -185,17 +190,20 @@ Dec Portfolio UPB
 
 ## Validation Run Against Dirty Tape
 
-Running `validate_msr_tape.py` against `MSR_Tape_Jan2026_SUBSERVICER.xlsx`:
+Running `validate_msr_tape.py` against `MSR_Tape_Jan2026_SUBSERVICER.xlsx` with PIF and New Add recon files:
 
 ```
 Prior month:    1,000 loans
 Submission:     1,186 loans (raw, incl. dups)
-HARD STOPS:     25  <-- ACTION REQUIRED
-YELLOW LIGHTS:  9   <-- REVIEW REQUIRED
+Missing loans:  15 total
+  PIF-explained:  12  (cleared — confirmed in Recon_PaidInFull_Jan2026.xlsx)
+  Unexplained:     3  <-- HARD STOP
+HARD STOPS:     13  <-- ACTION REQUIRED
+YELLOW LIGHTS:   9  <-- REVIEW REQUIRED
 Clean loans:    1,166
 
 Hard stop breakdown:
-  [15]  Missing Loan (not in PIF report)   ← 12 legit PIFs + 3 injected
+  [ 3]  Missing Loan (not in PIF report)   ← 3 injected (removed without PIF)
   [ 4]  UPB Exceeds Original Balance       ← 3 ×10 errors + 1 explicit
   [ 2]  NSF Expressed as Whole Basis Points
   [ 2]  Rate Expressed as Whole Number
@@ -210,9 +218,8 @@ Yellow light breakdown:
   [ 1]  Remaining Term Did Not Decrease
 ```
 
-> Note: The 12 "Missing Loan" hard stops for legit PIFs are expected — the validator
-> has no PIF file input and flags all absent loans. In a real workflow, these would
-> be cross-referenced against the PIF recon report and cleared.
+The 12 legitimate PIFs are automatically cleared by cross-referencing `Recon_PaidInFull_Jan2026.xlsx`.
+Only the 3 genuinely unexplained missing loans (removed without PIF) become hard stops.
 
 ---
 

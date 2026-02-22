@@ -257,6 +257,7 @@ for i in cap_candidates:
 for ln in dec_loans:
     if ln["is_pif"]:
         ln["upb_jan"] = None
+        ln["remaining_jan"] = None
         continue
 
     sched_prin = scheduled_principal(ln["upb_dec"], ln["rate"], ln["pi"])
@@ -268,6 +269,7 @@ for ln in dec_loans:
         base = ln["upb_dec"] + ln["cap_amount"]
 
     ln["upb_jan"] = round(max(0.0, base), 2)
+    ln["remaining_jan"] = ln["remaining"] - 1
 
 # ── Build New Adds (200 loans, recent originations) ───────────────────────────
 N_NEW_ADDS = 200
@@ -283,6 +285,7 @@ for i in range(N_NEW_ADDS):
     ln["total_pmt"]     = round(ln["pi"] + ln["escrow"], 2)
     ln["elapsed"]       = random.randint(1, 3)
     ln["remaining"]     = ln["term"] - ln["elapsed"]
+    ln["remaining_jan"] = ln["remaining"]
     ln["upb_dec"]       = None
     ln["upb_jan"]       = round(calc_upb(ln["orig_bal"], ln["rate"], ln["term"],
                                          ln["elapsed"]), 2)
@@ -394,7 +397,7 @@ def write_tape_header(ws, title_text, title_fill, row1=1):
     set_tape_col_widths(ws)
     return next_row + 1  # first data row
 
-def write_tape_row(ws, row, ln, upb_field, status_field, ndd_field):
+def write_tape_row(ws, row, ln, upb_field, status_field, ndd_field, rem_field="remaining"):
     upb    = ln[upb_field]
     status = ln[status_field]
     ndd    = ln[ndd_field]
@@ -409,7 +412,7 @@ def write_tape_row(ws, row, ln, upb_field, status_field, ndd_field):
     dcell(ws, row,  7, upb,             fill, CURR,  align="right")
     dcell(ws, row,  8, ln["rate"],      fill, PCT3,  align="right")
     dcell(ws, row,  9, ln["nsf"],       fill, PCT3,  align="right")
-    dcell(ws, row, 10, ln["remaining"], fill, NUM0,  align="center")
+    dcell(ws, row, 10, ln[rem_field],   fill, NUM0,  align="center")
     dcell(ws, row, 11, ln["maturity"],  fill, DFMT,  align="center")
     dcell(ws, row, 12, ln["pi"],        fill, CURR,  align="right")
     dcell(ws, row, 13, ln["escrow"],    fill, CURR,  align="right")
@@ -475,7 +478,7 @@ new_add_jan  = [ln for ln in jan_loans if ln["is_new_add"]]
 jan_sorted   = existing_jan + new_add_jan
 
 for r, ln in enumerate(jan_sorted, data_start_jan):
-    write_tape_row(ws_jan, r, ln, "upb_jan", "status_jan", "ndd_jan")
+    write_tape_row(ws_jan, r, ln, "upb_jan", "status_jan", "ndd_jan", rem_field="remaining_jan")
 tr_jan = data_start_jan + N_JAN
 write_tape_totals(ws_jan, data_start_jan, tr_jan - 1, tr_jan, fill=_fill("BDD7EE"))
 

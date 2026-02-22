@@ -14,10 +14,14 @@
 | Prior Month Loans | 1,000 |
 | Loans in Submission (raw) | 1,186 |
 | Duplicate Loan IDs | 1 |
-| Missing Loans (no PIF) | 15 |
-| New Adds | 200 |
+| Missing Loans (total) | 15 |
+|   — PIF-Explained (cleared) | 12 |
+|   — Unexplained (→ Hard Stop) | 3 |
+| New Adds (submitted) | 200 |
+|   — Confirmed by New Add Report | 200 |
+|   — Unconfirmed (→ Yellow Light) | 0 |
 | Unique Loans Evaluated | 1,185 |
-| **HARD STOPS** | **25** |
+| **HARD STOPS** | **13** |
 | **YELLOW LIGHTS** | **9** |
 | Loans Passing All Checks | 1,166 |
 
@@ -37,21 +41,9 @@
 | MSR100203 | GNMA | Layer 1 | Rate Expressed as Whole Number | Rate | 4.5200 | Decimal (e.g. 0.0650 for 6.50%) |
 | MSR100307 | Portfolio | Layer 1 | UPB Exceeds Original Balance | Current UPB ($) | $347,200.00 | <= $310,000.00 (Orig Bal) |
 | MSR100152 | GNMA | Layer 1 | Duplicate Loan ID | Loan ID | Appears 2+ times | Each Loan ID appears exactly once |
-| MSR100034 | FHLMC | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100100 | FNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
 | MSR100102 | FHLMC | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
 | MSR100103 | FHLMC | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
 | MSR100104 | GNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100241 | GNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100250 | FNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100252 | FNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100253 | FHLMC | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100264 | GNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100625 | FNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100709 | FNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100911 | FNMA | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100913 | FHLMC | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
-| MSR100952 | FHLMC | Layer 2 | Missing Loan (not in PIF report) | — | Not present | Present (no PIF entry found for this loan ID) |
 
 ---
 
@@ -63,23 +55,30 @@
 | MSR100003 | FNMA | Layer 1 | NSF May Be Expressed as Percent | Net Serv Fee | 0.2500 | ~0.0019–0.0069 (GNMA) or 0.0025 (FNMA/FHLMC) |
 | MSR100011 | GNMA | Layer 1 | Next Due Date in Past (Current Loan) | Next Due Date | 2025-06-01 | >= 2026-01-31 for Current-status loans |
 | MSR100012 | FHLMC | Layer 1 | Next Due Date in Past (Current Loan) | Next Due Date | 2025-06-01 | >= 2026-01-31 for Current-status loans |
+| MSR100004 | FNMA | Layer 2 | Status Bucket Skip | Status | Current -> 90+ DPD | Max 1-bucket change per month |
+| MSR100009 | FNMA | Layer 2 | P&I Inflated vs Prior Month | P&I ($) | $1,718.66 | ~$1,432.22 (unchanged from prior month) |
 | MSR100001 | FHLMC | Layer 2 | Status Bucket Skip | Status | Current -> 90+ DPD | Max 1-bucket change per month |
 | MSR100008 | FHLMC | Layer 2 | P&I Inflated vs Prior Month | P&I ($) | $2,185.25 | ~$1,821.04 (unchanged from prior month) |
-| MSR100009 | FNMA | Layer 2 | P&I Inflated vs Prior Month | P&I ($) | $1,718.66 | ~$1,432.22 (unchanged from prior month) |
-| MSR100004 | FNMA | Layer 2 | Status Bucket Skip | Status | Current -> 90+ DPD | Max 1-bucket change per month |
-| MSR100013 | FNMA | Layer 2 | Remaining Term Did Not Decrease | Rem Term | 112.0 | <= 111.0 (should not increase) |
+| MSR100013 | FNMA | Layer 2 | Remaining Term Did Not Decrease | Rem Term | 111.0 | <= 110 (should decrease by 1) |
 
 ---
 
 ## Missing Loans
 
+### Unexplained — Action Required
+
+| Loan ID | Investor | Prior UPB ($) |
+|---|---|---:|
+| MSR100102 | FHLMC | $197,083.68 |
+| MSR100103 | FHLMC | $181,657.15 |
+| MSR100104 | GNMA | $148,285.60 |
+
+### PIF-Explained — Cleared
+
 | Loan ID | Investor | Prior UPB ($) |
 |---|---|---:|
 | MSR100034 | FHLMC | $424,666.91 |
 | MSR100100 | FNMA | $291,530.86 |
-| MSR100102 | FHLMC | $197,083.68 |
-| MSR100103 | FHLMC | $181,657.15 |
-| MSR100104 | GNMA | $148,285.60 |
 | MSR100241 | GNMA | $265,375.94 |
 | MSR100250 | FNMA | $106,147.08 |
 | MSR100252 | FNMA | $365,421.00 |
