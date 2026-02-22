@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# Excel lock files (LibreOffice/Excel temp)
+.~lock.*
+
+# OS
+.DS_Store
+Thumbs.db
