@@ -108,6 +108,12 @@ LTYPE_POOL = (
 TERM_POOL   = [360]*70 + [180]*15 + [240]*15
 PURPOSE_POOL= ["Purchase"]*65 + ["Refinance"]*35
 
+def calc_nsf(investor):
+    """Net Servicing Fee: FNMA/FHLMC/Portfolio=25bps fixed; GNMA=19-69bps triangular, median 44bps."""
+    if investor == "GNMA":
+        return round(random.triangular(0.0019, 0.0069, 0.0044), 4)
+    return 0.0025
+
 # Rate ranges by origination year (reflecting market conditions)
 def rand_rate(orig_year):
     if   orig_year <= 2016: return round(random.uniform(0.0350, 0.0450), 4)
@@ -149,6 +155,7 @@ def make_loan(loan_id, as_of=date(2025,12,31)):
         "orig_date":  orig_date,
         "orig_bal":   orig_bal,
         "rate":       rate,
+        "nsf":        calc_nsf(investor),
         "term":       term,
         "elapsed":    elapsed,
         "remaining":  remaining,
@@ -347,24 +354,24 @@ def status_font(status):
     elif status == "Paid in Full":      return _font(bold=True, color="1F4E79", size=9)
     else:                               return RED_ST
 
-# Tape columns (15 total — no borrower name or address):
+# Tape columns (16 total — no borrower name or address):
 # 1=Loan ID, 2=Loan Type, 3=Purpose, 4=Investor, 5=Orig Date,
-# 6=Orig Bal, 7=UPB, 8=Rate, 9=Rem Term, 10=Maturity,
-# 11=P&I, 12=Escrow, 13=Total Pmt, 14=Status, 15=Next Due Date
+# 6=Orig Bal, 7=UPB, 8=Rate, 9=Net Serv Fee, 10=Rem Term, 11=Maturity,
+# 12=P&I, 13=Escrow, 14=Total Pmt, 15=Status, 16=Next Due Date
 
 TAPE_HEADERS = [
     "Loan ID","Loan Type","Purpose","Investor",
-    "Orig Date","Original Bal ($)","Current UPB ($)","Rate","Rem Term",
+    "Orig Date","Original Bal ($)","Current UPB ($)","Rate","Net Serv Fee","Rem Term",
     "Maturity","P&I ($)","Escrow ($)","Total Pmt ($)","Status","Next Due Date"
 ]
-TAPE_NCOLS = len(TAPE_HEADERS)  # 15
+TAPE_NCOLS = len(TAPE_HEADERS)  # 16
 
 def set_tape_col_widths(ws):
     widths = {
         "A":13,"B":13,"C":11,"D":10,
         "E":14,"F":16,"G":14,"H":13,
-        "I":11,"J":13,"K":13,"L":12,
-        "M":13,"N":13,"O":13,
+        "I":12,"J":11,"K":13,"L":13,
+        "M":12,"N":13,"O":13,"P":13,
     }
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
@@ -401,14 +408,15 @@ def write_tape_row(ws, row, ln, upb_field, status_field, ndd_field):
     dcell(ws, row,  6, ln["orig_bal"],  fill, CURR0, align="right")
     dcell(ws, row,  7, upb,             fill, CURR,  align="right")
     dcell(ws, row,  8, ln["rate"],      fill, PCT3,  align="right")
-    dcell(ws, row,  9, ln["remaining"], fill, NUM0,  align="center")
-    dcell(ws, row, 10, ln["maturity"],  fill, DFMT,  align="center")
-    dcell(ws, row, 11, ln["pi"],        fill, CURR,  align="right")
-    dcell(ws, row, 12, ln["escrow"],    fill, CURR,  align="right")
-    dcell(ws, row, 13, ln["total_pmt"], fill, CURR,  align="right")
-    sc = dcell(ws, row, 14, status or "Current", fill, align="center")
+    dcell(ws, row,  9, ln["nsf"],       fill, PCT3,  align="right")
+    dcell(ws, row, 10, ln["remaining"], fill, NUM0,  align="center")
+    dcell(ws, row, 11, ln["maturity"],  fill, DFMT,  align="center")
+    dcell(ws, row, 12, ln["pi"],        fill, CURR,  align="right")
+    dcell(ws, row, 13, ln["escrow"],    fill, CURR,  align="right")
+    dcell(ws, row, 14, ln["total_pmt"], fill, CURR,  align="right")
+    sc = dcell(ws, row, 15, status or "Current", fill, align="center")
     sc.font = status_font(status)
-    dcell(ws, row, 15, ndd,             fill, DFMT,  align="center")
+    dcell(ws, row, 16, ndd,             fill, DFMT,  align="center")
 
 def write_tape_totals(ws, data_start, data_end, total_row, fill=F_TOTAL):
     for col in range(1, TAPE_NCOLS + 1):
@@ -417,9 +425,9 @@ def write_tape_totals(ws, data_start, data_end, total_row, fill=F_TOTAL):
     ws.cell(row=total_row, column=1).value     = "TOTALS / AVERAGES"
     ws.cell(row=total_row, column=1).font      = BLKBOLD
     ws.cell(row=total_row, column=1).alignment = Alignment(horizontal="center")
-    # col 6=Orig Bal, 7=UPB, 11=P&I, 12=Escrow, 13=Total Pmt
+    # col 6=Orig Bal, 7=UPB, 12=P&I, 13=Escrow, 14=Total Pmt
     for col, cl, fmt in [
-        (6,"F",CURR0),(7,"G",CURR),(11,"K",CURR),(12,"L",CURR),(13,"M",CURR)
+        (6,"F",CURR0),(7,"G",CURR),(12,"L",CURR),(13,"M",CURR),(14,"N",CURR)
     ]:
         c = ws.cell(row=total_row, column=col)
         c.value = f"=SUM({cl}{data_start}:{cl}{data_end})"
@@ -430,8 +438,13 @@ def write_tape_totals(ws, data_start, data_end, total_row, fill=F_TOTAL):
     c.value = f"=AVERAGE(H{data_start}:H{data_end})"
     c.number_format = PCT3; c.font = BLKBOLD; c.fill = fill
     c.border = THIN; c.alignment = Alignment(horizontal="right")
-    # Count (col 9=I)
+    # Avg NSF (col 9=I)
     c = ws.cell(row=total_row, column=9)
+    c.value = f"=AVERAGE(I{data_start}:I{data_end})"
+    c.number_format = PCT3; c.font = BLKBOLD; c.fill = fill
+    c.border = THIN; c.alignment = Alignment(horizontal="right")
+    # Count (col 10=J)
+    c = ws.cell(row=total_row, column=10)
     c.value = f"=COUNT(G{data_start}:G{data_end})"
     c.number_format = NUM0; c.font = BLKBOLD; c.fill = fill
     c.border = THIN; c.alignment = Alignment(horizontal="center")
@@ -715,9 +728,9 @@ ws_na.title = "New Adds"
 #               Loan Term, Rem Term, P&I, Escrow, Total Pmt, Status
 NA_HDRS = ["Loan ID","Loan Type","Purpose",
            "Investor","Origination Date","Transfer / Add Date","Orig Balance ($)",
-           "Current UPB ($)","Rate","Loan Term","Rem Term","P&I ($)","Escrow ($)",
+           "Current UPB ($)","Rate","Net Serv Fee","Loan Term","Rem Term","P&I ($)","Escrow ($)",
            "Total Pmt ($)","Status"]
-NA_WIDTHS = [13,13,11,10,14,14,16,14,11,10,10,13,12,13,12]
+NA_WIDTHS = [13,13,11,10,14,14,16,14,11,12,10,10,13,12,13,12]
 NA_NCOLS = len(NA_HDRS)
 
 na_row = write_disclaimer(ws_na, NA_NCOLS, row=1)
@@ -748,12 +761,13 @@ for r, ln in enumerate(new_add_loans, na_data_start):
     dcell(ws_na, r,  7, ln["orig_bal"],      fill, CURR0, align="right")
     dcell(ws_na, r,  8, ln["upb_jan"],       fill, CURR,  align="right")
     dcell(ws_na, r,  9, ln["rate"],          fill, PCT3,  align="right")
-    dcell(ws_na, r, 10, ln["term"],          fill, NUM0,  align="center")
-    dcell(ws_na, r, 11, ln["remaining"],     fill, NUM0,  align="center")
-    dcell(ws_na, r, 12, ln["pi"],            fill, CURR,  align="right")
-    dcell(ws_na, r, 13, ln["escrow"],        fill, CURR,  align="right")
-    dcell(ws_na, r, 14, ln["total_pmt"],     fill, CURR,  align="right")
-    dcell(ws_na, r, 15, "Current",           fill, align="center", font=GRN_ST)
+    dcell(ws_na, r, 10, ln["nsf"],           fill, PCT3,  align="right")
+    dcell(ws_na, r, 11, ln["term"],          fill, NUM0,  align="center")
+    dcell(ws_na, r, 12, ln["remaining"],     fill, NUM0,  align="center")
+    dcell(ws_na, r, 13, ln["pi"],            fill, CURR,  align="right")
+    dcell(ws_na, r, 14, ln["escrow"],        fill, CURR,  align="right")
+    dcell(ws_na, r, 15, ln["total_pmt"],     fill, CURR,  align="right")
+    dcell(ws_na, r, 16, "Current",           fill, align="center", font=GRN_ST)
 
 na_tr = na_data_start + N_NEW_ADDS
 for col in range(1, NA_NCOLS + 1):
@@ -762,8 +776,8 @@ for col in range(1, NA_NCOLS + 1):
 ws_na.cell(row=na_tr, column=1).value     = "TOTALS / AVERAGES"
 ws_na.cell(row=na_tr, column=1).font      = BLKBOLD
 ws_na.cell(row=na_tr, column=1).alignment = Alignment(horizontal="center")
-# col 7=Orig Bal, 8=UPB, 12=P&I, 13=Escrow, 14=Total Pmt
-for col, cl in [(7,"G"),(8,"H"),(12,"L"),(13,"M"),(14,"N")]:
+# col 7=Orig Bal, 8=UPB, 13=P&I, 14=Escrow, 15=Total Pmt
+for col, cl in [(7,"G"),(8,"H"),(13,"M"),(14,"N"),(15,"O")]:
     c = ws_na.cell(row=na_tr, column=col)
     c.value = f"=SUM({cl}{na_data_start}:{cl}{na_tr-1})"
     c.number_format = CURR; c.font = BLKBOLD; c.fill = F_GRNTOT
@@ -771,6 +785,11 @@ for col, cl in [(7,"G"),(8,"H"),(12,"L"),(13,"M"),(14,"N")]:
 # Avg rate (col 9=I)
 c = ws_na.cell(row=na_tr, column=9)
 c.value = f"=AVERAGE(I{na_data_start}:I{na_tr-1})"
+c.number_format = PCT3; c.font = BLKBOLD; c.fill = F_GRNTOT
+c.border = THIN; c.alignment = Alignment(horizontal="right")
+# Avg NSF (col 10=J)
+c = ws_na.cell(row=na_tr, column=10)
+c.value = f"=AVERAGE(J{na_data_start}:J{na_tr-1})"
 c.number_format = PCT3; c.font = BLKBOLD; c.fill = F_GRNTOT
 c.border = THIN; c.alignment = Alignment(horizontal="right")
 

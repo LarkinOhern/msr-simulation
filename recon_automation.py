@@ -28,7 +28,7 @@ from openpyxl.utils import get_column_letter
 # ── Expected column positions in the MSR tape (1-indexed) ───────────────────
 # Header row is row 3 (row 1=disclaimer, row 2=title), data starts row 4
 # Columns: Loan ID, Loan Type, Purpose, Investor, Orig Date, Orig Bal,
-#          UPB, Rate, Rem Term, Maturity, P&I, Escrow, Total Pmt, Status, NDD
+#          UPB, Rate, Net Serv Fee, Rem Term, Maturity, P&I, Escrow, Total Pmt, Status, NDD
 COL = {
     "loan_id":    1,
     "loan_type":  2,
@@ -38,13 +38,14 @@ COL = {
     "orig_bal":   6,
     "upb":        7,
     "rate":       8,
-    "rem_term":   9,
-    "maturity":   10,
-    "pi":         11,
-    "escrow":     12,
-    "total_pmt":  13,
-    "status":     14,
-    "ndd":        15,
+    "nsf":        9,
+    "rem_term":   10,
+    "maturity":   11,
+    "pi":         12,
+    "escrow":     13,
+    "total_pmt":  14,
+    "status":     15,
+    "ndd":        16,
 }
 
 HEADER_ROW = 3   # column header row (after disclaimer + title)
@@ -145,6 +146,10 @@ def load_tape(filepath, sheet_hint=None):
         try:    rate = float(rate) if rate is not None else None
         except: rate = None
 
+        nsf = v("nsf")
+        try:    nsf = float(nsf) if nsf is not None else None
+        except: nsf = None
+
         pi = v("pi")
         try:    pi = float(pi) if pi is not None else None
         except: pi = None
@@ -159,6 +164,7 @@ def load_tape(filepath, sheet_hint=None):
             "investor":  v("investor"),
             "upb":       upb,
             "rate":      rate,
+            "nsf":       nsf,
             "pi":        pi,
             "orig_bal":  orig_bal,
             "status":    v("status"),
