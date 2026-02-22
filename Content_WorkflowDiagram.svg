@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" width="1000" height="460" font-family="Arial, sans-serif">
+
+  <!-- Background -->
+  <rect width="1000" height="460" fill="#F8FAFB"/>
+
+  <!-- Title bar -->
+  <rect x="0" y="0" width="1000" height="52" fill="#1F4E79"/>
+  <text x="500" y="22" font-size="14" font-weight="bold" fill="white" text-anchor="middle">MSR TAPE VALIDATION WORKFLOW</text>
+  <text x="500" y="40" font-size="9.5" fill="#BDD7EE" text-anchor="middle">AI-Assisted Subservicer Submission Management · Python + openpyxl · One Command to Run</text>
+
+  <!-- ═══ MAIN WORKFLOW BOXES ═══ -->
+
+  <!-- Box 1: Generate (blue) -->
+  <rect x="25" y="68" width="195" height="165" rx="8" fill="#2E75B6"/>
+  <rect x="25" y="68" width="195" height="32" rx="8" fill="#1F4E79"/>
+  <rect x="25" y="88" width="195" height="12" fill="#1F4E79"/>
+  <text x="122" y="90" font-size="11" font-weight="bold" fill="white" text-anchor="middle">① GENERATE</text>
+  <text x="122" y="117" font-size="9" fill="#D6E4F0" text-anchor="middle">build_msr_tape.py</text>
+  <text x="122" y="133" font-size="9" fill="white" text-anchor="middle">Dec 2025 · 1,000 loans · $291M</text>
+  <text x="122" y="149" font-size="9" fill="white" text-anchor="middle">Jan 2026 · 1,188 loans · $356M</text>
+  <text x="122" y="165" font-size="9" fill="white" text-anchor="middle">SMM 1.15% → 12 PIFs removed</text>
+  <text x="122" y="181" font-size="9" fill="white" text-anchor="middle">200 new adds · 8 curtailments</text>
+  <text x="122" y="204" font-size="8" fill="#BDD7EE" text-anchor="middle" font-style="italic">+ Recon: PIF · New Adds · Caps</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="220" y1="151" x2="256" y2="151" stroke="#555" stroke-width="2.5"/>
+  <polygon points="253,146 263,151 253,156" fill="#555"/>
+
+  <!-- Box 2: Error Injection (red) -->
+  <rect x="263" y="68" width="195" height="165" rx="8" fill="#C0392B"/>
+  <rect x="263" y="68" width="195" height="32" rx="8" fill="#7B2C2C"/>
+  <rect x="263" y="88" width="195" height="12" fill="#7B2C2C"/>
+  <text x="360" y="90" font-size="11" font-weight="bold" fill="white" text-anchor="middle">② INJECT ERRORS</text>
+  <text x="360" y="117" font-size="9" fill="#FCE4D6" text-anchor="middle">build_msr_tape_errors.py</text>
+  <text x="360" y="133" font-size="9" fill="white" text-anchor="middle">11 Hard Stop errors</text>
+  <text x="360" y="149" font-size="9" fill="white" text-anchor="middle">11 Yellow Light errors</text>
+  <text x="360" y="165" font-size="9" fill="white" text-anchor="middle">UPB · Rate · NSF · Status</text>
+  <text x="360" y="181" font-size="9" fill="white" text-anchor="middle">Missing Loans · Duplicates</text>
+  <text x="360" y="204" font-size="8" fill="#FCE4D6" text-anchor="middle" font-style="italic">Simulates realistic subservicer errors</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="458" y1="151" x2="494" y2="151" stroke="#555" stroke-width="2.5"/>
+  <polygon points="491,146 501,151 491,156" fill="#555"/>
+
+  <!-- Box 3: Validate (green) -->
+  <rect x="501" y="68" width="195" height="165" rx="8" fill="#27AE60"/>
+  <rect x="501" y="68" width="195" height="32" rx="8" fill="#375623"/>
+  <rect x="501" y="88" width="195" height="12" fill="#375623"/>
+  <text x="598" y="90" font-size="11" font-weight="bold" fill="white" text-anchor="middle">③ VALIDATE</text>
+  <text x="598" y="117" font-size="9" fill="#E2EFDA" text-anchor="middle">validate_msr_tape.py</text>
+  <text x="598" y="133" font-size="9" fill="white" text-anchor="middle">Layer 1: Field-level rules</text>
+  <text x="598" y="149" font-size="9" fill="white" text-anchor="middle">Layer 2: Cross-period checks</text>
+  <text x="598" y="165" font-size="9" fill="white" text-anchor="middle">PIF-aware clearance</text>
+  <text x="598" y="181" font-size="9" fill="white" text-anchor="middle">Auto-discovers recon files</text>
+  <text x="598" y="204" font-size="8" fill="#A9D18E" text-anchor="middle" font-style="italic">One command · No manual steps</text>
+
+  <!-- Arrow 3→4 -->
+  <line x1="696" y1="151" x2="732" y2="151" stroke="#555" stroke-width="2.5"/>
+  <polygon points="729,146 739,151 729,156" fill="#555"/>
+
+  <!-- Box 4: Report (amber) -->
+  <rect x="739" y="68" width="235" height="165" rx="8" fill="#E67E22"/>
+  <rect x="739" y="68" width="235" height="32" rx="8" fill="#833C00"/>
+  <rect x="739" y="88" width="235" height="12" fill="#833C00"/>
+  <text x="856" y="90" font-size="11" font-weight="bold" fill="white" text-anchor="middle">④ ACT ON RESULTS</text>
+  <text x="856" y="117" font-size="9" fill="#FCE4D6" text-anchor="middle">Validation_[submission].xlsx + .md</text>
+  <text x="856" y="133" font-size="9" fill="white" text-anchor="middle">Summary scorecard</text>
+  <text x="856" y="149" font-size="9" fill="white" text-anchor="middle">Hard Stops → action required</text>
+  <text x="856" y="165" font-size="9" fill="white" text-anchor="middle">Yellow Lights → review required</text>
+  <text x="856" y="181" font-size="9" fill="white" text-anchor="middle">Missing Loans (PIF-cleared split)</text>
+  <text x="856" y="204" font-size="8" fill="#FCE4D6" text-anchor="middle" font-style="italic">Excel (4 tabs) + Markdown auto-generated</text>
+
+  <!-- ═══ MIDDLE BAND ═══ -->
+  <line x1="25" y1="252" x2="975" y2="252" stroke="#D5D8DC" stroke-width="1"/>
+
+  <!-- Key metrics -->
+  <rect x="25" y="260" width="455" height="62" rx="6" fill="#EBF5FB" stroke="#AED6F1" stroke-width="1"/>
+  <text x="252" y="279" font-size="9.5" font-weight="bold" fill="#1F4E79" text-anchor="middle">VALIDATION RESULTS — KNOWN INJECTION TEST</text>
+  <text x="110" y="300" font-size="10" font-weight="bold" fill="#C0392B" text-anchor="middle">13 Hard Stops</text>
+  <text x="110" y="314" font-size="8" fill="#555" text-anchor="middle">action required</text>
+  <text x="252" y="300" font-size="10" font-weight="bold" fill="#996600" text-anchor="middle">9 Yellow Lights</text>
+  <text x="252" y="314" font-size="8" fill="#555" text-anchor="middle">review required</text>
+  <text x="400" y="300" font-size="10" font-weight="bold" fill="#375623" text-anchor="middle">12 PIFs Cleared</text>
+  <text x="400" y="314" font-size="8" fill="#555" text-anchor="middle">auto-explained</text>
+
+  <!-- Recon files -->
+  <rect x="500" y="260" width="475" height="62" rx="6" fill="#FFFDE7" stroke="#F9A825" stroke-width="1"/>
+  <text x="737" y="279" font-size="9.5" font-weight="bold" fill="#7B3F00" text-anchor="middle">RECON FILES — AUTO-DISCOVERED FROM DIRECTORY</text>
+  <text x="628" y="300" font-size="9" fill="#7B3F00" text-anchor="middle">Recon_PaidInFull_Jan2026.xlsx</text>
+  <text x="628" y="314" font-size="8" fill="#996600" text-anchor="middle">12 confirmed PIFs · cleared</text>
+  <text x="862" y="300" font-size="9" fill="#7B3F00" text-anchor="middle">Recon_NewAdds_Jan2026.xlsx</text>
+  <text x="862" y="314" font-size="8" fill="#996600" text-anchor="middle">200 confirmed new adds</text>
+
+  <!-- Dashed arrow recon → validate -->
+  <line x1="630" y1="260" x2="598" y2="235" stroke="#F9A825" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <polygon points="594,237 601,227 606,236" fill="#F9A825"/>
+
+  <!-- ═══ BLIND TEST STRIP ═══ -->
+  <rect x="25" y="342" width="950" height="95" rx="8" fill="white" stroke="#1F4E79" stroke-width="1.5" stroke-dasharray="8,4"/>
+  <text x="500" y="360" font-size="10" font-weight="bold" fill="#1F4E79" text-anchor="middle">BLIND TEST — Validator Run Against Unknown Injections · No Prior Knowledge</text>
+
+  <!-- Blind submit box -->
+  <rect x="45" y="368" width="185" height="55" rx="6" fill="#2E75B6"/>
+  <text x="137" y="387" font-size="10" font-weight="bold" fill="white" text-anchor="middle">BLIND SUBMISSION</text>
+  <text x="137" y="402" font-size="8.5" fill="#D6E4F0" text-anchor="middle">LO_Jitter.xlsx</text>
+  <text x="137" y="415" font-size="8.5" fill="#D6E4F0" text-anchor="middle">8 undisclosed error types</text>
+
+  <!-- Arrow -->
+  <line x1="230" y1="395" x2="378" y2="395" stroke="#1F4E79" stroke-width="2"/>
+  <polygon points="375,390 385,395 375,400" fill="#1F4E79"/>
+  <text x="304" y="389" font-size="8" fill="#555" text-anchor="middle">same script</text>
+  <text x="304" y="402" font-size="8" fill="#555" text-anchor="middle">one command</text>
+
+  <!-- Validate box -->
+  <rect x="385" y="368" width="185" height="55" rx="6" fill="#375623"/>
+  <text x="477" y="387" font-size="10" font-weight="bold" fill="white" text-anchor="middle">SAME VALIDATOR</text>
+  <text x="477" y="402" font-size="8.5" fill="#E2EFDA" text-anchor="middle">validate_msr_tape.py</text>
+  <text x="477" y="415" font-size="8.5" fill="#E2EFDA" text-anchor="middle">no code changes</text>
+
+  <!-- Arrow -->
+  <line x1="570" y1="395" x2="718" y2="395" stroke="#1F4E79" stroke-width="2"/>
+  <polygon points="715,390 725,395 715,400" fill="#1F4E79"/>
+
+  <!-- Result box -->
+  <rect x="725" y="368" width="235" height="55" rx="6" fill="#196F3D"/>
+  <text x="842" y="389" font-size="14" font-weight="bold" fill="white" text-anchor="middle">8 / 8 CAUGHT</text>
+  <text x="842" y="405" font-size="8.5" fill="#A9D18E" text-anchor="middle">13 hard stops · 17 yellow lights · 0 missed</text>
+  <text x="842" y="418" font-size="8" fill="#A9D18E" text-anchor="middle" font-style="italic">Typos · phantom loans · stacked errors — all detected</text>
+
+</svg>
